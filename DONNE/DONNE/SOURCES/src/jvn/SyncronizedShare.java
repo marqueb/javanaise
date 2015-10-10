@@ -11,11 +11,11 @@ public class SyncronizedShare {
 		this.blockInvalidation=false;		
 	}
 
-	public boolean isBlockInvalidation() {
+	public synchronized boolean isBlockInvalidation() {
 		return blockInvalidation;
 	}
 
-	public void setBlockInvalidation(boolean blockInvalidation) {
+	public synchronized void setBlockInvalidation(boolean blockInvalidation) {
 		this.blockInvalidation = blockInvalidation;
 	}
 
