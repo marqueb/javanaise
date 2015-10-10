@@ -37,6 +37,7 @@ public class JvnObjectImpl implements JvnObject{
 		synchonized.setBlockInvalidation(false);
 		//wait if invalidation is running
 		synchonized.waitInvalidation();
+		synchonized.notifyWaiter();
 		synchonized.setBlockInvalidation(true);
 
 		//update current lock
@@ -94,8 +95,8 @@ public class JvnObjectImpl implements JvnObject{
 		synchonized.setBlockInvalidation(true);
 		switch (lock){
 		case NL:
-			synchonized.setBlockInvalidation(false);
 			synchonized.notifyWaiter();
+			synchonized.setBlockInvalidation(false);
 			lock = Lock.W;
 			this.object = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
 			synchonized.setBlockInvalidation(true);
