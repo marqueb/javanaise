@@ -33,18 +33,19 @@ public class JvnObjectImpl implements JvnObject{
 			lock = Lock.NL;
 			synchonized = new SyncronizedShare();
 		}
-	
+
+		synchonized.setBlockInvalidation(false);
 		//wait if invalidation is running
 		synchonized.waitInvalidation();
+		synchonized.setBlockInvalidation(true);
 
 		//update current lock
 		switch (lock){
 		case NL:
-			synchonized.setBlockInvalidation(true);
 			synchonized.notifyWaiter();
 			lock = Lock.R;
-			this.object = JvnServerImpl.jvnGetServer().jvnLockRead(id);
 			synchonized.setBlockInvalidation(false);
+			this.object = JvnServerImpl.jvnGetServer().jvnLockRead(id);
 			break;
 		case R:
 			lock = Lock.RC;
@@ -62,6 +63,8 @@ public class JvnObjectImpl implements JvnObject{
 		default :
 			throw new JvnException("Erreur lors de la lecture");
 		}
+		synchonized.notifyWaiter();
+		synchonized.setBlockInvalidation(false);
 	}
 
 	@Override
@@ -72,19 +75,21 @@ public class JvnObjectImpl implements JvnObject{
 		if(synchonized== null)
 			synchonized = new SyncronizedShare();
 		synchonized.waitInvalidation();
+		synchonized.setBlockInvalidation(true);
 		switch (lock){
 		case NL:
-			synchonized.setBlockInvalidation(true);
+			synchonized.setBlockInvalidation(false);
 			synchonized.notifyWaiter();
 			lock = Lock.W;
 			this.object = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
-			synchonized.setBlockInvalidation(false);
+			synchonized.setBlockInvalidation(true);
 			break;
 		case R:
-			synchonized.setBlockInvalidation(true);
+			synchonized.notifyWaiter();
+			synchonized.setBlockInvalidation(false);
 			lock = Lock.W;
 			this.object = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
-			synchonized.setBlockInvalidation(false);
+			synchonized.setBlockInvalidation(true);
 			break;
 		case W:
 			break;
@@ -121,7 +126,8 @@ public class JvnObjectImpl implements JvnObject{
 		default :
 			throw new JvnException("Erreur lors de la liberation des verroux");
 		}
-
+		synchonized.notifyWaiter();
+		synchonized.setBlockInvalidation(false);
 	}
 
 	@Override

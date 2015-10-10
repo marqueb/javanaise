@@ -1,16 +1,36 @@
 package jvn;
 
 public class SyncronizedShare {
+	private boolean blockInvalidation;
 	private boolean isInvalidate;
 	private boolean upToDate;
-	private boolean blockInvalidation;
 
 	public SyncronizedShare(){
+		this.blockInvalidation=false;	
 		this.isInvalidate = false;
-		this.upToDate = true;
-		this.blockInvalidation=false;		
+		this.upToDate = true;	
 	}
 
+
+	public synchronized void waitInvalidation(){
+		while(isInvalidate && !upToDate){
+			try {
+				wait();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	public synchronized void waitInvalidationBlocked(){
+		while(!isBlockInvalidation()){
+			try {
+				wait();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
 	public synchronized boolean isBlockInvalidation() {
 		return blockInvalidation;
 	}
@@ -35,25 +55,6 @@ public class SyncronizedShare {
 		this.upToDate = upToDate;
 	}
 
-	public synchronized void waitInvalidation(){
-		while(isInvalidate && !upToDate){
-			try {
-				wait();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-
-	public synchronized void waitInvalidationBlocked(){
-		while(!isBlockInvalidation()){
-			try {
-				wait();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-	}
 	public synchronized void notifyWaiter(){
 		notifyAll();
 	}
