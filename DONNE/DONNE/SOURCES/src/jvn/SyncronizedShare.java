@@ -23,13 +23,13 @@ public class SyncronizedShare {
 	}
 
 	public synchronized void waitInvalidationBlocked(){
-		while(!isBlockInvalidation()){
-			try {
-				wait();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
+//		while(!isBlockInvalidation()){
+//			try {
+//				wait();
+//			} catch (InterruptedException e) {
+//				e.printStackTrace();
+//			}
+//		}
 	}
 	public synchronized boolean isBlockInvalidation() {
 		return blockInvalidation;

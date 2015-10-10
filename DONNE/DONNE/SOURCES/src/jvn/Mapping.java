@@ -22,7 +22,7 @@ public class Mapping {
 		return lock;
 	}
 
-	public void setLock(Lock verrou) {
+	public void setLock(Lock lock) {
 		this.lock = lock;
 	}
 

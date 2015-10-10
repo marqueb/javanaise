@@ -48,17 +48,33 @@ public class JvnObjectImpl implements JvnObject{
 			this.object = JvnServerImpl.jvnGetServer().jvnLockRead(id);
 			break;
 		case R:
+			synchonized.notifyWaiter();
 			lock = Lock.RC;
+			synchonized.setBlockInvalidation(false);
+			this.object = JvnServerImpl.jvnGetServer().jvnLockRead(id);
 			break;
 		case W:
+			synchonized.notifyWaiter();
 			lock = Lock.R;
+			synchonized.setBlockInvalidation(false);
+			this.object = JvnServerImpl.jvnGetServer().jvnLockRead(id);
 		case WC:
+			synchonized.notifyWaiter();
 			lock = Lock.RWC;
+			synchonized.setBlockInvalidation(false);
+			this.object = JvnServerImpl.jvnGetServer().jvnLockRead(id);
 			break;
 		case RC :
+			synchonized.notifyWaiter();
 			lock = Lock.R;
+			synchonized.setBlockInvalidation(false);
+			this.object = JvnServerImpl.jvnGetServer().jvnLockRead(id);
 			break;
 		case RWC :
+			synchonized.notifyWaiter();
+			lock = Lock.RWC;
+			synchonized.setBlockInvalidation(false);
+			this.object = JvnServerImpl.jvnGetServer().jvnLockRead(id);
 			break;
 		default :
 			throw new JvnException("Erreur lors de la lecture");
@@ -92,14 +108,33 @@ public class JvnObjectImpl implements JvnObject{
 			synchonized.setBlockInvalidation(true);
 			break;
 		case W:
+			synchonized.notifyWaiter();
+			synchonized.setBlockInvalidation(false);
+			lock = Lock.W;
+			this.object = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
+			synchonized.setBlockInvalidation(true);
 			break;
 		case WC:
+			synchonized.notifyWaiter();
+			synchonized.setBlockInvalidation(false);
 			lock = Lock.W;
+			this.object = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
+			synchonized.setBlockInvalidation(true);
 			break;
 		case RC :
+			synchonized.notifyWaiter();
+			synchonized.setBlockInvalidation(false);
+			lock = Lock.W;
+			this.object = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
+			synchonized.setBlockInvalidation(true);
 			lock = Lock.RWC;
 			break;
 		case RWC :
+			synchonized.notifyWaiter();
+			synchonized.setBlockInvalidation(false);
+			lock = Lock.W;
+			this.object = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
+			synchonized.setBlockInvalidation(true);
 			break;
 		default :
 			throw new JvnException("Erreur lors de l'écriture");

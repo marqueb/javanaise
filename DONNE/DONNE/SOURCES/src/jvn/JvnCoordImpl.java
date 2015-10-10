@@ -138,8 +138,7 @@ implements JvnRemoteCoord{
 						serializable = object.getServerWriter().jvnInvalidateWriterForReader(joi);
 						object.getJo().setObject(serializable);
 						object.setServerWriter(null);
-					}
-					
+					}					
 				}else{
 					j++;
 				}
@@ -147,8 +146,6 @@ implements JvnRemoteCoord{
 		}
 		//update object lock on the coordinator structure
 		object.getServer().get(joi).setLock(Lock.R);
-		if(serializable!=null)
-			return serializable;
 		if(!trouve2){
 			throw new JvnException("Erreur lock read dans le store");
 		}else{
@@ -194,14 +191,16 @@ implements JvnRemoteCoord{
 				j++;
 			}
 		}
+		if(serializable!=null){
+			object.getJo().setObject(serializable);
+			object.setServerWriter(null);
+		}
 		if(!trouve2){
 			throw new JvnException ("Erreur d'écriture dans le store");
 		}else{
 			object.setServerWriter(js);
 			//update object lock on the coordinator structure
-			object.getServer().get(joi).setLock(Lock.R);
-			if(serializable!=null) 
-				return serializable;
+			object.getServer().get(joi).setLock(Lock.W);
 			return object.getJo().jvnGetObjectState();
 		}
 	}

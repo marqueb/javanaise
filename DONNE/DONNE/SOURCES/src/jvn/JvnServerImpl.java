@@ -170,14 +170,14 @@ public class JvnServerImpl extends UnicastRemoteObject implements JvnLocalServer
 		while (i<object.size() && !trouve){
 			if(object.get(i).jvnGetObjectId()==joi){
 				trouve = true;
+				object.get(i).jvnInvalidateReader();
 			}else{
 				i++;
 			}
 		}
-		if(trouve){
+		if(!trouve){
 			throw new JvnException("Erreur lors de l'invalidation des lecteurs");
 		}
-		object.get(i).jvnInvalidateReader();
 		
 	}
 
