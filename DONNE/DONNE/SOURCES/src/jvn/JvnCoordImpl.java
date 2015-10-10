@@ -15,20 +15,16 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
 
-import irc.Sentence;
-import jvn.JvnObjectImpl.Verrou;
-
 
 public class JvnCoordImpl 	
 extends UnicastRemoteObject 
 implements JvnRemoteCoord{
 
-	List<Integer> r, rc;
-	int w, wc, rwc;
 	int unique;
-	List<Mapping> table;
+	List<CoordStruct> coordStruct;
 	JvnObject j;
-	//Serializble o;
+	JvnRemoteServer jsTest;
+
 
 	public static void main(String argv[]) {
 		try {
@@ -54,10 +50,7 @@ implements JvnRemoteCoord{
 	 * @throws JvnException
 	 **/
 	private JvnCoordImpl() throws Exception {
-		r = new ArrayList <Integer>();
-		rc = new ArrayList <Integer>();
-		table = new ArrayList<Mapping>();
-		w = wc = rwc = -1;
+		coordStruct = new ArrayList<CoordStruct>();
 		unique=0;
 	}
 
@@ -66,7 +59,7 @@ implements JvnRemoteCoord{
 	 *  newly created JVN object)
 	 * @throws java.rmi.RemoteException,JvnException
 	 **/
-	public int jvnGetObjectId()
+	public synchronized int jvnGetObjectId()
 			throws java.rmi.RemoteException,jvn.JvnException {
 		return unique++;
 	}
@@ -79,10 +72,11 @@ implements JvnRemoteCoord{
 	 * @param js  : the remote reference of the JVNServer
 	 * @throws java.rmi.RemoteException,JvnException
 	 **/
-	public void jvnRegisterObject(String jon, JvnObject jo, JvnRemoteServer js)
+	public synchronized void jvnRegisterObject(String jon, JvnObject jo, JvnRemoteServer js)
 			throws java.rmi.RemoteException,jvn.JvnException{
-		j = jo;
-		table.add(new Mapping(jo.jvnGetObjectId(), jon, jo, js));
+		List<Mapping> tmp = new ArrayList<Mapping>();
+		tmp.add(new Mapping(js));
+		coordStruct.add(new CoordStruct(jon, jo, jo.jvnGetObjectId(), tmp));
 	}
 
 	/**
@@ -91,22 +85,27 @@ implements JvnRemoteCoord{
 	 * @param js : the remote reference of the JVNServer
 	 * @throws java.rmi.RemoteException,JvnException
 	 **/
-	public JvnObject jvnLookupObject(String jon, JvnRemoteServer js)
+	public synchronized JvnObject jvnLookupObject(String jon, JvnRemoteServer js)
 			throws java.rmi.RemoteException,jvn.JvnException{
-		if(table.isEmpty()){
-			return null;
-		}else{
-			Mapping object=null;
-			for (Mapping m : table ){
-				if(m.getJon().equals(jon)){
-					object = m;
-				}
+		int i =0;
+		boolean trouve = false;
+		while(i < coordStruct.size() && !trouve){
+			if(coordStruct.get(i).getJon().equals(jon)){
+				trouve = true;
+			}else{
+				i++;
 			}
-			table.add(new Mapping(0, jon, object.getJo(), js));
-			return object.getJo();
+		}
+		if(trouve){
+			CoordStruct tmp = coordStruct.get(i);
+			tmp.getServer().add(new Mapping(js));
+			return tmp.getJo();
+		}else{
+			return null;
 		}
 	}
 
+	
 	/**
 	 * Get a Read lock on a JVN object managed by a given JVN server 
 	 * @param joi : the JVN object identification
@@ -114,16 +113,43 @@ implements JvnRemoteCoord{
 	 * @return the current JVN object state
 	 * @throws java.rmi.RemoteException, JvnException
 	 **/
-	public Serializable jvnLockRead(int joi, JvnRemoteServer js)
+	public synchronized Serializable jvnLockRead(int joi, JvnRemoteServer js)
 			throws java.rmi.RemoteException, JvnException{
-		Mapping object=null;
-		for (Mapping m : table ){
-			if(m.getJoi() == joi && js.equals((JvnRemoteServer)m.getJs())){
-				object = m;
+		CoordStruct object=null;
+		int i=0;
+		boolean trouve = false;
+		boolean trouve2 = false;
+		while(i < coordStruct.size() && !trouve){
+			if(coordStruct.get(i).getJoi()==joi){
+				trouve = true;
+			}else{
+				i++;
 			}
 		}
-		object.getJo().setVerrou(Verrou.R);
-		return object.getJo().jvnGetObjectState();
+		if(trouve){
+			object = coordStruct.get(i);
+			int j = 0;
+			while(j < object.getServer().size() && !trouve2){
+				if(coordStruct.get(i).getServer().get(j).getJs().equals(js)){
+					trouve2 = true;
+					if(object.getServerWriter()!=null){
+						Serializable tmp = object.getServerWriter().jvnInvalidateWriterForReader(joi);
+						object.getJo().setObject(tmp);
+						object.setServerWriter(null);
+					}
+					
+				}else{
+					j++;
+				}
+			}
+		}
+		//update object lock on the coordinator structure
+		object.getServer().get(joi).setLock(Lock.R);
+		if(!trouve2){
+			throw new JvnException("Erreur lock read dans le store");
+		}else{
+			return object.getJo().jvnGetObjectState();
+		}
 	}
 
 	/**
@@ -133,22 +159,43 @@ implements JvnRemoteCoord{
 	 * @return the current JVN object state
 	 * @throws java.rmi.RemoteException, JvnException
 	 **/
-	public Serializable jvnLockWrite(int joi, JvnRemoteServer js)
+	public synchronized Serializable jvnLockWrite(int joi, JvnRemoteServer js)
 			throws java.rmi.RemoteException, JvnException{
-		//System.out.println("jambon 1 "+joi+" "+js.toString());
-		Mapping object = null;
-		for (Mapping m : table ){
-			if(m.getJoi() == joi && js.equals((JvnRemoteServer)m.getJs())){
-				object = m;
-			}
-			if(m.getJo().getVerrou()== Verrou.W){
-				m.getJs().jvnInvalidateWriter(m.getJoi());
-			}
-			if(m.getJo().getVerrou()== Verrou.R){
-				m.getJs().jvnInvalidateReader(m.getJoi());
+		CoordStruct object=null;
+		int i = 0;
+		boolean trouve = false;
+		boolean trouve2 = false;
+		while(i < coordStruct.size() && !trouve){
+			if(coordStruct.get(i).getJoi()==joi){
+				trouve = true;
+			}else{
+				i++;
 			}
 		}
-		return object.getJo().jvnGetObjectState();
+		if(trouve){
+			int j = 0;
+			while(j < coordStruct.get(i).getServer().size() && !trouve2){
+				if(coordStruct.get(i).getServer().get(j).getJs().equals(js)){
+					trouve2 = true;
+					object = coordStruct.get(i);
+				}
+				if(coordStruct.get(i).getServer().get(j).getLock() == Lock.W){
+					coordStruct.get(i).getServer().get(j).getJs().jvnInvalidateWriter(coordStruct.get(i).getJoi());
+				}
+				if(coordStruct.get(i).getServer().get(j).getLock() == Lock.R){
+					coordStruct.get(i).getServer().get(j).getJs().jvnInvalidateReader(coordStruct.get(i).getJoi());
+				}
+				j++;
+			}
+		}
+		if(!trouve2){
+			throw new JvnException ("Erreur d'écriture dans le store");
+		}else{
+			object.setServerWriter(js);
+			//update object lock on the coordinator structure
+			object.getServer().get(joi).setLock(Lock.R);
+			return object.getJo().jvnGetObjectState();
+		}
 	}
 
 	/**
@@ -156,11 +203,13 @@ implements JvnRemoteCoord{
 	 * @param js  : the remote reference of the server
 	 * @throws java.rmi.RemoteException, JvnException
 	 **/
-	public void jvnTerminate(JvnRemoteServer js)
+	public synchronized void jvnTerminate(JvnRemoteServer js)
 			throws java.rmi.RemoteException, JvnException {
-		for (Mapping m : table) {
-			if(js.equals((JvnRemoteServer)m.getJs()))
-				table.remove(m);
+		for (CoordStruct cs : coordStruct) {
+			for (Mapping m : cs.getServer()){
+				if(m.getJs().equals(js))
+					cs.getServer().remove(m);
+			}
 		}
 	}
 }

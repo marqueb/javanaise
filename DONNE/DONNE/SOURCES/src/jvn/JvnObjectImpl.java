@@ -2,44 +2,125 @@ package jvn;
 
 import java.io.Serializable;
 
+import com.sun.corba.se.impl.presentation.rmi.DynamicMethodMarshallerImpl.ReaderWriter;
+
 public class JvnObjectImpl implements JvnObject{
 
 	int id;
-	Serializable o;
-	enum Verrou { NL, R, RC, W, WC, RWC };
-	Verrou verrou;
-
-	public JvnObjectImpl(Serializable o, int id) {
+	Serializable object;
+	transient Lock lock;
+	transient SyncronizedShare synchonized;
+	public JvnObjectImpl(Serializable object, int id) {
 		super();
 		this.id = id;	
-		this.o = o;
-		this.verrou= Verrou.NL;
+		this.object = object;
+		this.lock= Lock.NL;
+		synchonized = new SyncronizedShare();
 	}
 
-	
-	public Verrou getVerrou() {
-		return verrou;
+
+	public Lock getLock() {
+		return lock;
 	}
 
-	public void setVerrou(Verrou verrou) {
-		this.verrou = verrou;
+	public void setLock(Lock verrou) {
+		this.lock = verrou;
 	}
-	
+
 	@Override
 	public void jvnLockRead() throws JvnException {
-		this.o = JvnServerImpl.jvnGetServer().jvnLockRead(id);
-		verrou = Verrou.R;
+		if(synchonized== null){
+			lock = Lock.NL;
+			synchonized = new SyncronizedShare();
+		}
+	
+		//wait if invalidation is running
+		synchonized.waitInvalidation();
+
+		//update current lock
+		switch (lock){
+		case NL:
+			synchonized.setBlockInvalidation(true);
+			synchonized.notifyWaiter();
+			lock = Lock.R;
+			this.object = JvnServerImpl.jvnGetServer().jvnLockRead(id);
+			synchonized.setBlockInvalidation(false);
+			break;
+		case R:
+			lock = Lock.RC;
+			break;
+		case W:
+			lock = Lock.R;
+		case WC:
+			lock = Lock.RWC;
+			break;
+		case RC :
+			lock = Lock.R;
+			break;
+		case RWC :
+			break;
+		default :
+			throw new JvnException("Erreur lors de la lecture");
+		}
 	}
 
 	@Override
 	public void jvnLockWrite() throws JvnException {
-		this.o = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
-		verrou = Verrou.W;
+		if(lock == null){
+			lock = Lock.NL;
+		}
+		if(synchonized== null)
+			synchonized = new SyncronizedShare();
+		synchonized.waitInvalidation();
+		switch (lock){
+		case NL:
+			synchonized.setBlockInvalidation(true);
+			synchonized.notifyWaiter();
+			lock = Lock.W;
+			this.object = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
+			synchonized.setBlockInvalidation(false);
+			break;
+		case R:
+			synchonized.setBlockInvalidation(true);
+			lock = Lock.W;
+			this.object = JvnServerImpl.jvnGetServer().jvnLockWrite(id);
+			synchonized.setBlockInvalidation(false);
+			break;
+		case W:
+			break;
+		case WC:
+			lock = Lock.W;
+			break;
+		case RC :
+			lock = Lock.RWC;
+			break;
+		case RWC :
+			break;
+		default :
+			throw new JvnException("Erreur lors de l'écriture");
+		}
 	}
 
 	@Override
 	public void jvnUnLock() throws JvnException {
-		verrou = Verrou.NL;
+		switch (lock){
+		case NL:
+			break;
+		case R:
+			lock = Lock.RC;
+			break;
+		case W:
+			lock = Lock.WC;
+			break;
+		case WC:
+			break;
+		case RC :
+			break;
+		case RWC :
+			break;
+		default :
+			throw new JvnException("Erreur lors de la liberation des verroux");
+		}
 
 	}
 
@@ -50,35 +131,53 @@ public class JvnObjectImpl implements JvnObject{
 
 	@Override
 	public Serializable jvnGetObjectState() throws JvnException {
-		return this.o;
+		return this.object;
 	}
 
 	@Override
 	public void jvnInvalidateReader() throws JvnException {
-		// TODO Auto-generated method stub
-
+		synchonized.setInvalidate(true);
+		synchonized.setUpToDate(false);
+		
+		synchonized.waitInvalidationBlocked();
+		lock = Lock.NL;
+		
+		synchonized.setInvalidate(false);
+		synchonized.setUpToDate(true);
+		synchonized.notifyWaiter();
 	}
 
 	@Override
 	public Serializable jvnInvalidateWriter() throws JvnException {
-		// TODO Auto-generated method stub
-		return null;
+		synchonized.setInvalidate(true);
+		synchonized.setUpToDate(false);
+		
+		synchonized.waitInvalidationBlocked();
+		lock = Lock.NL;
+		
+		synchonized.setInvalidate(false);
+		synchonized.setUpToDate(true);
+		synchonized.notifyWaiter();
+		return jvnGetObjectState();
 	}
 
-	public Serializable getO() {
-		return o;
-	}
-
-
-	public void setO(Serializable o) {
-		this.o = o;
+	public void setObject(Serializable o) {
+		this.object = o;
 	}
 
 
 	@Override
 	public Serializable jvnInvalidateWriterForReader() throws JvnException {
-		// TODO Auto-generated method stub
-		return null;
+		synchonized.setInvalidate(true);
+		synchonized.setUpToDate(false);
+		
+		synchonized.waitInvalidationBlocked();
+		lock = Lock.RC;
+		
+		synchonized.setInvalidate(false);
+		synchonized.setUpToDate(true);
+		synchonized.notifyWaiter();
+		return jvnGetObjectState();
 	}
 
 }

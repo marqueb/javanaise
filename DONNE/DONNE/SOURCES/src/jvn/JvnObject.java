@@ -7,9 +7,7 @@
 
 package jvn;
 
-import java.io.*;
-
-import jvn.JvnObjectImpl.Verrou;
+import java.io.Serializable;
 
 /**
  * Interface of a JVN object. 
@@ -22,7 +20,7 @@ public interface JvnObject extends Serializable {
 	
 	/**
 	* Get a Read lock on the object 
-	* @throws JvnException
+	* @throws JvnException 
 	**/
 	public void jvnLockRead()
 	throws jvn.JvnException; 
@@ -80,12 +78,22 @@ public interface JvnObject extends Serializable {
    public Serializable jvnInvalidateWriterForReader()
 	 throws jvn.JvnException;	
    
+	/**
+	 * Get the current lock on the JVNObject
+	 * @return the current JVN object lock
+	 */
+	public Lock getLock();
 	
-	public Verrou getVerrou();
+	/** 
+	 * Set the new lock on the JVNObject
+	 * @param lock
+	 */
+	public void setLock(Lock lock);
 
-	public void setVerrou(Verrou verrou);
-
-	public void setO(Serializable o);
+	/**
+	 * Update current serializable JVN object
+	 * @param object serializable
+	 */
+	public void setObject(Serializable object);
 	
-	public Serializable getO();
 }

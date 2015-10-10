@@ -12,6 +12,8 @@ import java.io.Serializable;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
+import java.util.List;
 
 
 
@@ -20,6 +22,7 @@ public class JvnServerImpl extends UnicastRemoteObject implements JvnLocalServer
 	// A JVN server is managed as a singleton 
 	private static JvnServerImpl js = null;
 	JvnRemoteCoord coord;
+	List<JvnObject> object;
 
 	/**
 	 * Default constructor
@@ -29,12 +32,13 @@ public class JvnServerImpl extends UnicastRemoteObject implements JvnLocalServer
 		super();
 		//Recuperation d'une interface coordinateur distant
 		try{
+			object = new ArrayList<JvnObject>();
 			coord = (JvnRemoteCoord)Naming.lookup("//localhost:20011/coordinator");
 		}
 		catch(Exception e){
 			System.out.println("exception lookup coord "+e);
 		}
-		
+
 	}
 
 	/**
@@ -73,6 +77,7 @@ public class JvnServerImpl extends UnicastRemoteObject implements JvnLocalServer
 		JvnObject jvn=null;
 		try {
 			jvn = new JvnObjectImpl(o, coord.jvnGetObjectId());
+			object.add(jvn);
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -105,7 +110,11 @@ public class JvnServerImpl extends UnicastRemoteObject implements JvnLocalServer
 	public  JvnObject jvnLookupObject(String jon)
 			throws jvn.JvnException {
 		try {
-			return coord.jvnLookupObject(jon, this);
+			JvnObject tmp = coord.jvnLookupObject(jon, this);
+			if(tmp != null){
+				object.add(tmp);
+			}
+			return tmp;
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -156,8 +165,21 @@ public class JvnServerImpl extends UnicastRemoteObject implements JvnLocalServer
 	 **/
 	public void jvnInvalidateReader(int joi)
 			throws java.rmi.RemoteException,jvn.JvnException {
-		// to be completed 
-	};
+		boolean trouve = false;
+		int i = 0;
+		while (i<object.size() && !trouve){
+			if(object.get(i).jvnGetObjectId()==joi){
+				trouve = true;
+			}else{
+				i++;
+			}
+		}
+		if(trouve){
+			throw new JvnException("Erreur lors de l'invalidation des lecteurs");
+		}
+		object.get(i).jvnInvalidateReader();
+		
+	}
 
 	/**
 	 * Invalidate the Write lock of the JVN object identified by id 
@@ -167,9 +189,20 @@ public class JvnServerImpl extends UnicastRemoteObject implements JvnLocalServer
 	 **/
 	public Serializable jvnInvalidateWriter(int joi)
 			throws java.rmi.RemoteException,jvn.JvnException { 
-		// to be completed 
-		return null;
-	};
+		boolean trouve = false;
+		int i = 0;
+		while (i<object.size() && !trouve){
+			if(object.get(i).jvnGetObjectId()==joi){
+				trouve = true;
+			}else{
+				i++;
+			}
+		}
+		if(!trouve){
+			throw new JvnException("Erreur lors de l'invalidation des écritures ");
+		}
+		return object.get(i).jvnInvalidateWriter();
+	}
 
 	/**
 	 * Reduce the Write lock of the JVN object identified by id 
@@ -179,9 +212,20 @@ public class JvnServerImpl extends UnicastRemoteObject implements JvnLocalServer
 	 **/
 	public Serializable jvnInvalidateWriterForReader(int joi)
 			throws java.rmi.RemoteException,jvn.JvnException { 
-		// to be completed 
-		return null;
-	};
+		boolean trouve = false;
+		int i = 0;
+		while (i<object.size() && !trouve){
+			if(object.get(i).jvnGetObjectId()==joi){
+				trouve = true;
+			}else{
+				i++;
+			}
+		}
+		if(!trouve){
+			throw new JvnException("Erreur pendant l'invalidation des écritures pour le lecteur");
+		}
+		return object.get(i).jvnInvalidateWriterForReader();
+	}
 
 }
 
