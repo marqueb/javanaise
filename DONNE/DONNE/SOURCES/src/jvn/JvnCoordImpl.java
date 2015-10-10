@@ -126,6 +126,8 @@ implements JvnRemoteCoord{
 				i++;
 			}
 		}
+
+		Serializable serializable = null;
 		if(trouve){
 			object = coordStruct.get(i);
 			int j = 0;
@@ -133,8 +135,8 @@ implements JvnRemoteCoord{
 				if(coordStruct.get(i).getServer().get(j).getJs().equals(js)){
 					trouve2 = true;
 					if(object.getServerWriter()!=null){
-						Serializable tmp = object.getServerWriter().jvnInvalidateWriterForReader(joi);
-						object.getJo().setObject(tmp);
+						serializable = object.getServerWriter().jvnInvalidateWriterForReader(joi);
+						object.getJo().setObject(serializable);
 						object.setServerWriter(null);
 					}
 					
@@ -145,6 +147,8 @@ implements JvnRemoteCoord{
 		}
 		//update object lock on the coordinator structure
 		object.getServer().get(joi).setLock(Lock.R);
+		if(serializable!=null)
+			return serializable;
 		if(!trouve2){
 			throw new JvnException("Erreur lock read dans le store");
 		}else{
@@ -172,6 +176,8 @@ implements JvnRemoteCoord{
 				i++;
 			}
 		}
+
+		Serializable serializable=null;
 		if(trouve){
 			int j = 0;
 			while(j < coordStruct.get(i).getServer().size() && !trouve2){
@@ -180,7 +186,7 @@ implements JvnRemoteCoord{
 					object = coordStruct.get(i);
 				}
 				if(coordStruct.get(i).getServer().get(j).getLock() == Lock.W){
-					coordStruct.get(i).getServer().get(j).getJs().jvnInvalidateWriter(coordStruct.get(i).getJoi());
+					serializable =coordStruct.get(i).getServer().get(j).getJs().jvnInvalidateWriter(coordStruct.get(i).getJoi());
 				}
 				if(coordStruct.get(i).getServer().get(j).getLock() == Lock.R){
 					coordStruct.get(i).getServer().get(j).getJs().jvnInvalidateReader(coordStruct.get(i).getJoi());
@@ -194,6 +200,8 @@ implements JvnRemoteCoord{
 			object.setServerWriter(js);
 			//update object lock on the coordinator structure
 			object.getServer().get(joi).setLock(Lock.R);
+			if(serializable!=null) 
+				return serializable;
 			return object.getJo().jvnGetObjectState();
 		}
 	}
